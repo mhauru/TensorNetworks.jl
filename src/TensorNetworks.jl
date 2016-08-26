@@ -8,181 +8,15 @@ import Base.convert
 Symbol(x::Any) = symbol(x)
 convert(::Type{Symbol}, x::Any) = symbol(x)
 
-const blastypes = (Float32, Float64, Complex64, Complex128)    
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Submodules
+# (each of these files includes one module, and one module only)
 
-module TensorNetworkBond
-    export (TensorNetworkBond, connectbond!, disconnectbond!, reconnectbond!,
-            isdangling, isdoubledangling, getendpoints)
+include("TensorNetworkBonds.jl")
+include("TensorNetworkNodes.jl")
+using .TensorNetworkBonds
+using .TensorNetworkNodes
 
-    type TensorNetworkBond
-        label::Symbol
-        first::Nullable{Symbol}
-        second::Nullable{Symbol}
-    end
-
-    function TensorNetworkBond(bondlabel, nodelabel1::Symbol, nodelabel2::Symbol)
-        res = TensorNetworkBond(bondlabel, Nullable(nodelabel1),
-                                Nullable(nodelabel2))  
-        return res
-    end
-
-    function TensorNetworkBond(bondlabel, nodelabel::Symbol)
-        res = TensorNetworkBond(bondlabel, Nullable(nodelabel), Nullable{Symbol}())  
-        return res
-    end
-
-    function Base.show(io::IO, tnb::TensorNetworkBond)
-        label = tnb.label
-        nodelabel1, nodelabel2 = tnb.nodes
-        str = "TensorNetworkBond $label: $nodelabel1 <=> $nodelabel2"
-        return print(io, str)
-    end
-
-    function connectbond!(bond, nodelabel)
-        if !isdangling(bond)
-            errmsg = "Can not connect a bond that isn't dangling."
-            throw(ArgumentError(errmsg))
-        elseif isnull(bond.first)
-            bond.first = Nullable(nodelabel)
-        else
-            bond.second = Nullable(nodelabel)
-        end
-        return bond
-    end
-
-    function relabel!(bond::TensorNetworkBond, label)
-        bond.label = label
-        return bond
-    end
-
-    function reconnectbond!(bond, oldlabel, newlabel)
-        disconnectbond(bond, oldlabel)
-        connectbond!(bond, newlabel)
-        return bond
-    end
-
-    function disconnectbond!(bond, label)
-        if bond.first == Nullable(label)
-            bond.first = Nullable{Symbol}()
-        elseif bond.second == Nullable(label)
-            bond.second = Nullable{Symbol}()
-        else
-            errmsg = "Can not disconnect bond $(bond.label) from node $label,"*
-                     " because it's not connected."
-            raise(ArgumentError(errmsg))
-        end
-        return bond
-    end
-
-    function isdangling(bond::TensorNetworkBond)
-        res = isnull(bond.first) || isnull(bond.second)
-        return res
-    end
-
-    function isdoubledangling(bond)
-        res = isnull(bond.first) && isnull(bond.second)
-        return res
-    end
-
-    function getendpoints(bond)
-        endpoints = Set{Symbol}()
-        if !isnull(bond.first)
-            push!(endpoints, get(bond.first))
-        end
-        if !isnull(bond.second)
-            push!(endpoints, get(bond.second))
-        end
-        return endpoints
-    end
-
-end
-
-module TensorNetworkNode
-    export TensorNetworkNode, contractnodes
-
-    type TensorNetworkNode
-        label::Symbol
-        tensor::Array
-        bonds::Vector{Symbol}
-    end
-
-    function Base.show(io::IO, tnn::TensorNetworkNode)
-        label = tnn.label
-        bonds = tnn.bonds
-        str = "TensorNetworkNode $label, bonds: $a"
-        return print(io, str)
-    end
-
-    function relabel!(node::TensorNetworkBond, label)
-        node.label = label
-        return node
-    end
-
-    function getbondindex(node, label)
-        indices = findin(node.bonds, [label])
-        if length(indices) == 1
-            indices = indices[1]
-        end
-        return indices
-    end
-
-    function getbonddimension(node::TensorNetworkNode, bondlabel)
-        tensor = node.tensor
-        i = findin(node.bonds, bondlabel)
-        bonddimension = size(tensor)[i]
-        return bonddimension
-    end
-
-    function contractnodes(node, bondlabels)
-        # Trace over a single node.
-        tensor = node.tensor
-        ndims = ndims(tensor)
-        labels = collect(1:ndims)
-        for s in bondlabels
-            i1, i2 = getbondindex(node, s)
-            labels[i2] = labels[i1]
-        end
-
-        newtensor = tensortrace(tensor, labels)
-
-        newlabel = node.label
-        oldbondlabels = node.bondlabels
-        newbondlabels = oldbondlabels[find(x -> !in(x, bondlabels), oldbondlabels)]
-        newnode = TensorNetworkNode(newlabel, newtensor, newbondlabels)
-        return newnode
-    end
-
-    function contractnodes(node1, node2, bondlabels)
-        # Two nodes contracted together.
-        tensor1, tensor2 = node1.tensor, node2.tensor
-        ndims1, ndims2 = ndims(tensor1), ndims(tensor2)
-        labels1 = collect(1:ndims1)
-        labels2 = collect(ndims1+1:ndims1+ndims2)
-        for s in bondlabels
-            i1 = getbondindex(node1, s)
-            i2 = getbondindex(node2, s)
-            labels2[i2] = labels1[i1]
-        end
-
-        # Check whether the element types of the tensors can be handled by BLAS.
-        if eltype(tensor1) in blastypes && eltype(tensor2) in blastypes
-            method = :BLAS
-        else
-            method = :native
-        end
-        newtensor = tensorcontract(tensor1, labels1, tensor2, labels2;
-                                   method=method)
-
-        str1, str2 = string(node1.label), string(node2.label)
-        newlabel = "($str1,$str2)"
-        newbondlabels = vcat(node1.bonds..., node2.bonds...)
-        newbondlabels = newbondlabels[find(x -> !in(x, bondlabels),
-                                           newbondlabels)]
-        newnode = TensorNetworkNode(newlabel, newtensor, newbondlabels)
-        return newnode
-    end
-
-end
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Types
@@ -196,6 +30,7 @@ type TensorNetworkEvaluation
     tn::TensorNetwork
     order::Vector{Symbol}
 end
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Generating labels
@@ -484,7 +319,7 @@ function invar_tensorndims(tn::TensorNetwork)
 end
 
 function invar_indexcompatibility(tn::TensorNetwork)
-    for bondlabel, bond in tn.bonds  
+    for (bondlabel, bond) in tn.bonds  
         nodes = bond.nodes
         if length(nodes) > 1
             # TODO This should be part of a tensor class.
@@ -507,7 +342,5 @@ function invar(tn::TensorNetwork)
     push!(invars, invar_indexcompatibility(tn))
     return all(invars)
 end
-
-
 
 end
