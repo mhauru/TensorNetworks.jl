@@ -12,18 +12,18 @@ convert(::Type{Symbol}, x::Any) = symbol(x)
 # Submodules
 # (each of these files includes one module, and one module only)
 
-include("TensorNetworkBonds.jl")
-include("TensorNetworkNodes.jl")
-using .TensorNetworkBonds
-using .TensorNetworkNodes
+include("Bonds.jl")
+include("Nodes.jl")
+using .Bonds
+using .Nodes
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Types
 
 type TensorNetwork
-    nodes::Dict{Symbol, TensorNetworkNode}
-    bonds::Dict{Symbol, TensorNetworkBond}
+    nodes::Dict{Symbol, Node}
+    bonds::Dict{Symbol, Bond}
 end
 
 type TensorNetworkEvaluation
@@ -71,8 +71,8 @@ end
 # Constructors and such
 
 function TensorNetwork()
-    tn = TensorNetwork(Dict{Symbol, TensorNetworkNode}(),
-                       Dict{Symbol, TensorNetworkNode}()) 
+    tn = TensorNetwork(Dict{Symbol, Node}(),
+                       Dict{Symbol, Node}()) 
     return tn
 end
 
@@ -86,7 +86,7 @@ function addnode!(tn, node)
             connectbond!(tn.bonds[bondlabel], node.label)
         else
             # Otherwise, create a new, dangling bond.
-            tn.bonds[bondlabel] = TensorNetworkBond(bondlabel, node.label)
+            tn.bonds[bondlabel] = Bond(bondlabel, node.label)
         end
     end
     return tn
@@ -99,7 +99,7 @@ function addtensor!(tn, tensor; label=nothing, bondlabels=nothing)
     if bondlabels==nothing
         bondlabels = [createlabel(tn, :bond) for i in 1:ndims(tensor)]
     end
-    node = TensorNetworkNode(label, tensor, bondlabels)
+    node = Node(label, tensor, bondlabels)
     addnode!(tn, node)
     return tn
 end
@@ -161,13 +161,13 @@ end
 allnodelabels(tn) = Set{Symbol}(keys(tn.nodes))
 
 function constructbondsfromnodes(nodedict)
-    bonds = Dict{Symbol, TensorNetworkBond}
+    bonds = Dict{Symbol, Bond}
     for (nodelabel, node) in nodedict
         for bondlabel in node.bonds
             if bondlabel in keys(bonds)
                 connectbond!(bonds[bondlabel], nodelabel)
             else
-                bonds[bondlabel] = TensorNetworkBond(bondlabel, nodelabel)
+                bonds[bondlabel] = Bond(bondlabel, nodelabel)
             end
         end
     end
@@ -199,6 +199,7 @@ function Base.show(io::IO, tne::TensorNetworkEvaluation)
           "$(tne.order)"
     return print(io, str)
 end
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # High-level functions

@@ -1,24 +1,24 @@
 
-module TensorNetworkNodes
+module Nodes
 
-export TensorNetworkNode, contractnodes
+export Node, contractnodes
 
 const blastypes = (Float32, Float64, Complex64, Complex128)    
 
-type TensorNetworkNode
+type Node
     label::Symbol
     tensor::Array
     bonds::Vector{Symbol}
 end
 
-function Base.show(io::IO, tnn::TensorNetworkNode)
+function Base.show(io::IO, tnn::Node)
     label = tnn.label
     bonds = tnn.bonds
-    str = "TensorNetworkNode $label, bonds: $a"
+    str = "Node $label, bonds: $a"
     return print(io, str)
 end
 
-function relabel!(node::TensorNetworkNode, label)
+function relabel!(node::Node, label)
     node.label = label
     return node
 end
@@ -31,7 +31,7 @@ function getbondindex(node, label)
     return indices
 end
 
-function getbonddimension(node::TensorNetworkNode, bondlabel)
+function getbonddimension(node::Node, bondlabel)
     tensor = node.tensor
     i = findin(node.bonds, bondlabel)
     bonddimension = size(tensor)[i]
@@ -53,7 +53,7 @@ function contractnodes(node, bondlabels)
     newlabel = node.label
     oldbondlabels = node.bondlabels
     newbondlabels = oldbondlabels[find(x -> !in(x, bondlabels), oldbondlabels)]
-    newnode = TensorNetworkNode(newlabel, newtensor, newbondlabels)
+    newnode = Node(newlabel, newtensor, newbondlabels)
     return newnode
 end
 
@@ -83,7 +83,7 @@ function contractnodes(node1, node2, bondlabels)
     newbondlabels = vcat(node1.bonds..., node2.bonds...)
     newbondlabels = newbondlabels[find(x -> !in(x, bondlabels),
                                        newbondlabels)]
-    newnode = TensorNetworkNode(newlabel, newtensor, newbondlabels)
+    newnode = Node(newlabel, newtensor, newbondlabels)
     return newnode
 end
 

@@ -1,29 +1,29 @@
-module TensorNetworkBonds
+module Bonds
 
-export TensorNetworkBond, connectbond!, disconnectbond!, reconnectbond!,
+export Bond, connectbond!, disconnectbond!, reconnectbond!,
        isdangling, isdoubledangling, getendpoints
 
-type TensorNetworkBond
+type Bond
     label::Symbol
     first::Nullable{Symbol}
     second::Nullable{Symbol}
 end
 
-function TensorNetworkBond(bondlabel, nodelabel1::Symbol, nodelabel2::Symbol)
-    res = TensorNetworkBond(bondlabel, Nullable(nodelabel1),
+function Bond(bondlabel, nodelabel1::Symbol, nodelabel2::Symbol)
+    res = Bond(bondlabel, Nullable(nodelabel1),
                             Nullable(nodelabel2))  
     return res
 end
 
-function TensorNetworkBond(bondlabel, nodelabel::Symbol)
-    res = TensorNetworkBond(bondlabel, Nullable(nodelabel), Nullable{Symbol}())  
+function Bond(bondlabel, nodelabel::Symbol)
+    res = Bond(bondlabel, Nullable(nodelabel), Nullable{Symbol}())  
     return res
 end
 
-function Base.show(io::IO, tnb::TensorNetworkBond)
+function Base.show(io::IO, tnb::Bond)
     label = tnb.label
     nodelabel1, nodelabel2 = tnb.nodes
-    str = "TensorNetworkBond $label: $nodelabel1 <=> $nodelabel2"
+    str = "Bond $label: $nodelabel1 <=> $nodelabel2"
     return print(io, str)
 end
 
@@ -39,7 +39,7 @@ function connectbond!(bond, nodelabel)
     return bond
 end
 
-function relabel!(bond::TensorNetworkBond, label)
+function relabel!(bond::Bond, label)
     bond.label = label
     return bond
 end
@@ -63,7 +63,7 @@ function disconnectbond!(bond, label)
     return bond
 end
 
-function isdangling(bond::TensorNetworkBond)
+function isdangling(bond::Bond)
     res = isnull(bond.first) || isnull(bond.second)
     return res
 end
