@@ -5,11 +5,6 @@ using Base.Test
 using NCon
 using TensorOperations
 
-a = randn(10,4,5)
-b = randn(11,5,3)
-c = randn(12,3,4)
-
-abc = ncon((a, b, c), ([-1,1,2], [-2,2,3], [-3,3,1]))
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Tests for Bonds
@@ -38,6 +33,7 @@ c = Bond(:b, :C, :E)
 @test c == b
 
 @test_throws(ArgumentError, disconnectbond!(c, :F))
+@test_throws(ArgumentError, connectbond!(c, :F))
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -65,3 +61,12 @@ Nodes.relabel!(mcopy, :K)  # TODO Why do I have to specify Node?
 @test m.tensor == mcopy.tensor
 @test m.bonds == mcopy.bonds
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Tests for TensorNetworks
+
+a = randn(10,4,5)
+b = randn(11,5,3)
+c = randn(12,3,4)
+
+abc = ncon((a, b, c), ([-1,1,2], [-2,2,3], [-3,3,1]))

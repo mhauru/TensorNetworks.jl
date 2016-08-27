@@ -8,6 +8,9 @@ import Base.convert
 Symbol(x::Any) = symbol(x)
 convert(::Type{Symbol}, x::Any) = symbol(x)
 
+export TensorNetwork, addnode!, removenode!, addtensor!, relabelnode!,
+       relabelbond!, tensor, contractbonds!, contractnodes!, subnetwork
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Submodules
 # (each of these files includes one module, and one module only)
