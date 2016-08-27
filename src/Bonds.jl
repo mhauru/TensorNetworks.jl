@@ -1,12 +1,24 @@
 module Bonds
 
+import Base.==, Base.show
+
 export Bond, connectbond!, disconnectbond!, reconnectbond!,
-       isdangling, isdoubledangling, getendpoints
+       isdangling, isdoubledangling, getendpoints, relabel!
 
 type Bond
     label::Symbol
     first::Nullable{Symbol}
     second::Nullable{Symbol}
+end
+
+function nullorequal(a::Nullable{Symbol}, b::Nullable{Symbol})
+    if isnull(a) && isnull(b)
+        return true
+    end
+    if isnull(a) || isnull(b) 
+        return false
+    end
+    return get(a) == get(b)
 end
 
 function Bond(bondlabel, nodelabel1::Symbol, nodelabel2::Symbol)
@@ -20,12 +32,27 @@ function Bond(bondlabel, nodelabel::Symbol)
     return res
 end
 
-function Base.show(io::IO, tnb::Bond)
-    label = tnb.label
-    nodelabel1, nodelabel2 = tnb.nodes
-    str = "Bond $label: $nodelabel1 <=> $nodelabel2"
+function show(io::IO, bond::Bond)
+    label = bond.label
+    end1 = isnull(bond.first) ? "DANGLING" : get(bond.first)
+    end2 = isnull(bond.second) ? "DANGLING" : get(bond.second)
+    str = "Bond $label: $end1 <=> $end2"
     return print(io, str)
 end
+
+function ==(b1::Bond, b2::Bond)
+    if b1.label !== b2.label
+        return false
+    end
+    # TODO I feel like this isn't the most elegant way to go about doing this.
+    if ((nullorequal(b1.first, b2.first) && nullorequal(b1.second, b2.second))
+        ||
+        (nullorequal(b1.first, b2.second) && nullorequal(b1.second, b2.first)))
+        return true
+    end
+    return false
+end
+    
 
 function connectbond!(bond, nodelabel)
     if !isdangling(bond)
@@ -45,20 +72,20 @@ function relabel!(bond::Bond, label)
 end
 
 function reconnectbond!(bond, oldlabel, newlabel)
-    disconnectbond(bond, oldlabel)
+    disconnectbond!(bond, oldlabel)
     connectbond!(bond, newlabel)
     return bond
 end
 
 function disconnectbond!(bond, label)
-    if bond.first == Nullable(label)
+    if !isnull(bond.first) && get(bond.first) == label
         bond.first = Nullable{Symbol}()
-    elseif bond.second == Nullable(label)
+    elseif !isnull(bond.second) && get(bond.second) == label
         bond.second = Nullable{Symbol}()
     else
         errmsg = "Can not disconnect bond $(bond.label) from node $label,"*
                  " because it's not connected."
-        raise(ArgumentError(errmsg))
+        throw(ArgumentError(errmsg))
     end
     return bond
 end

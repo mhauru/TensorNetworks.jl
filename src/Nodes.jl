@@ -1,7 +1,7 @@
 
 module Nodes
 
-export Node, contractnodes
+export Node, contractnodes, relabel!
 
 const blastypes = (Float32, Float64, Complex64, Complex128)    
 
