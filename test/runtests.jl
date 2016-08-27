@@ -3,6 +3,7 @@ using TensorNetworks.Bonds
 using TensorNetworks.Nodes
 using Base.Test
 using NCon
+using TensorOperations
 
 a = randn(10,4,5)
 b = randn(11,5,3)
@@ -37,3 +38,30 @@ c = Bond(:b, :C, :E)
 @test c == b
 
 @test_throws(ArgumentError, disconnectbond!(c, :F))
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Tests for Nodes
+
+narr = randn(3,4,5,6)
+nlabels = [:i, :j, :k ,:l]
+n = Node(:N, narr, nlabels)
+
+marr = randn(2,2,7,4,3)
+mlabels = [:a, :a, :b, :j, :i]
+m = Node(:M, marr, mlabels)
+
+mn = contractnodes(m, n, [:i, :j])
+mnarr = tensorcontract(marr, [:a, :c, :b, :j, :i], narr, nlabels)
+@test mn.tensor == mnarr
+
+mtrace = contractnodes(m, [:a])
+mtracearr = tensortrace(marr, mlabels)
+@test mtrace.tensor == mtracearr
+
+mcopy = deepcopy(m)
+Nodes.relabel!(mcopy, :K)  # TODO Why do I have to specify Node?
+@test mcopy.label === :K
+@test m.tensor == mcopy.tensor
+@test m.bonds == mcopy.bonds
+

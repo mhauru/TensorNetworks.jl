@@ -1,6 +1,9 @@
 
 module Nodes
 
+using TensorOperations
+import Base.show
+
 export Node, contractnodes, relabel!
 
 const blastypes = (Float32, Float64, Complex64, Complex128)    
@@ -11,7 +14,7 @@ type Node
     bonds::Vector{Symbol}
 end
 
-function Base.show(io::IO, tnn::Node)
+function show(io::IO, tnn::Node)
     label = tnn.label
     bonds = tnn.bonds
     str = "Node $label, bonds: $a"
@@ -41,8 +44,8 @@ end
 function contractnodes(node, bondlabels)
     # Trace over a single node.
     tensor = node.tensor
-    ndims = ndims(tensor)
-    labels = collect(1:ndims)
+    n = ndims(tensor)
+    labels = collect(1:n)
     for s in bondlabels
         i1, i2 = getbondindex(node, s)
         labels[i2] = labels[i1]
@@ -51,7 +54,7 @@ function contractnodes(node, bondlabels)
     newtensor = tensortrace(tensor, labels)
 
     newlabel = node.label
-    oldbondlabels = node.bondlabels
+    oldbondlabels = node.bonds
     newbondlabels = oldbondlabels[find(x -> !in(x, bondlabels), oldbondlabels)]
     newnode = Node(newlabel, newtensor, newbondlabels)
     return newnode
