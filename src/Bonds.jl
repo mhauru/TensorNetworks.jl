@@ -1,6 +1,6 @@
 module Bonds
 
-import Base.==, Base.show
+import Base.==
 
 export Bond, connectbond!, disconnectbond!, reconnectbond!,
        isdangling, isdoubledangling, getendpoints, relabel!

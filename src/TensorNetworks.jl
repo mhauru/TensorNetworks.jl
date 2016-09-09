@@ -1,5 +1,9 @@
 module TensorNetworks
 
+export TensorNetwork, addnode!, removenode!, addtensor!, relabelnode!,
+       relabelbond!, tensor, contractbonds!, contractnodes!, subnetwork,
+       ncon
+
 using TensorOperations
 import Base.show
 # TODO the following four lines should be unnecessary in julia v0.5
@@ -8,8 +12,6 @@ import Base.convert
 Symbol(x::Any) = symbol(x)
 convert(::Type{Symbol}, x::Any) = symbol(x)
 
-export TensorNetwork, addnode!, removenode!, addtensor!, relabelnode!,
-       relabelbond!, tensor, contractbonds!, contractnodes!, subnetwork
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # Submodules
@@ -27,11 +29,6 @@ using .Nodes
 type TensorNetwork
     nodes::Dict{Symbol, Node}
     bonds::Dict{Symbol, Bond}
-end
-
-type TensorNetworkEvaluation
-    tn::TensorNetwork
-    order::Vector{Symbol}
 end
 
 
@@ -79,7 +76,23 @@ function TensorNetwork()
     return tn
 end
 
-function addnode!(tn, node)
+function TensorNetwork(tensors, bondlists)
+    # TODO This is a bit hacky, and relies on nothing being the default value
+    # for label in addtensor!.
+    labels = fill(nothing, length(tensors))
+    tn = TensorNetwork(tensor, labels, bondlists)
+    return tn
+end
+
+function TensorNetwork(tensors, labels, bondlists)
+    tn = TensorNetwork()
+    for (tensor, label, bondlabels) in zip(tensors, labels, bondlists)
+        addtensor!(tn, tensor; label=label, bondlabels=bondlabels)
+    end
+    return tn
+end
+
+function addnode!(tn::TensorNetwork, node)
     tn.nodes[node.label] = node
     allbonds = keys(tn.bonds)
     for bondlabel in node.bonds
@@ -95,7 +108,7 @@ function addnode!(tn, node)
     return tn
 end
 
-function addtensor!(tn, tensor; label=nothing, bondlabels=nothing)
+function addtensor!(tn::TensorNetwork, tensor; label=nothing, bondlabels=nothing)
     if label == nothing
         label = createlabel(tn, :node)
     end
@@ -107,7 +120,7 @@ function addtensor!(tn, tensor; label=nothing, bondlabels=nothing)
     return tn
 end
 
-function relabelnode!(tn, oldlabel, newlabel)
+function relabelnode!(tn::TensorNetwork, oldlabel, newlabel)
     node = tn.nodes[oldlabel]
     relabel!(node, newlabel)
     delete!(tn.nodes, oldlabel)
@@ -119,7 +132,7 @@ function relabelnode!(tn, oldlabel, newlabel)
     return tn
 end
 
-function relabelbond!(tn, oldlabel, newlabel)
+function relabelbond!(tn::TensorNetwork, oldlabel, newlabel)
     bond = tn.bonds[oldlabel]
     relabel!(bond, newlabel)
     delete!(tn.bonds, oldlabel)
@@ -132,7 +145,7 @@ function relabelbond!(tn, oldlabel, newlabel)
     return tn
 end
 
-function removenode!(tn, label)
+function removenode!(tn::TensorNetwork, label)
     node = tn.nodes[label]
     delete!(tn.nodes, label)
     for s in node.bonds
@@ -145,9 +158,23 @@ function removenode!(tn, label)
     return tn
 end
 
-function connectingbonds(tn, nodelabels...)
+function replacenodes!(tn::TensorNetwork, oldnodelabels, newnodes)
+    for l in oldnodelabels
+        removenode!(tn, l)
+    end
+    for n in newnodes
+        addnode!(tn, newnode)
+    end
+    return tn
+end
+
+function connectingbonds(tn::TensorNetwork, nodelabels...; includetraces=true)
     nodes = [tn.nodes[l] for l in nodelabels]
-    allmentionedbonds = vcat([n.bonds for n in nodes]...)
+    bondlists = [n.bonds for n in nodes]
+    if !includetraces
+        bondlists = map(unique, bondlists)
+    end
+    allmentionedbonds = vcat(bondlists...)
     # Get the ones that apper twice.
     once = Set{Symbol}()
     twice = Set{Symbol}()
@@ -184,22 +211,20 @@ end
 function Base.show(io::IO, tn::TensorNetwork)
     str = "TensorNetwork, with nodes\n"
     for (label, node) in tn.nodes
-        str *= " $label: $(node.bonds)\n"
+        str *= " $label: $(string(node.bonds))\n"
     end
-    str *= "and bonds\n"
+    str *= "and bonds"
     for (label, bond) in tn.bonds
-        ns = bond.nodes
-        n1, n2 = length(ns) == 1 ? (first(ns), nothing) : ns
-        str *= " $label: $n1 <=> $n2\n"
+        str *= "\n $label: "
+        n1, n2 = get(bond.first, :FREE), get(bond.second, :FREE)
+        if n1 === :FREE
+            str *= "$n2"
+        elseif n2 === :FREE
+            str *= "$n1"
+        else
+            str *= "$n1 <=> $n2"
+        end
     end
-    return print(io, str)
-end
-
-function Base.show(io::IO, tne::TensorNetworkEvaluation)
-    str = "TensorNetworkEvaluation, with\n"*
-          "$(tne.tn)\n"*
-          "and contraction order:\n"*
-          "$(tne.order)"
     return print(io, str)
 end
 
@@ -207,13 +232,13 @@ end
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # High-level functions
 
-function subnetwork(tn; include=allnodelabels(tn))
+function subnetwork(tn::TensorNetwork; include=allnodelabels(tn))
     allnodes = allnodelabels(tn)
     exclude = setdiff(allnodes, include)
     return subnetwork(tn, exclude=exclude)
 end
 
-function subnetwork(tn; exclude=Set{Symbol}())
+function subnetwork(tn::TensorNetwork; exclude=Set{Symbol}())
     tn = copy(tn)  # TODO is this shallow?
     for l in exclude
         removenode!(tn, l)
@@ -221,24 +246,24 @@ function subnetwork(tn; exclude=Set{Symbol}())
     return tn
 end
 
-function contract_backend!(tn, nodelabels, bondlabels)
+function contract_backend!(tn::TensorNetwork, nodelabels, bondlabels)
     nodes = [tn.nodes[l] for l in nodelabels]
     newnode = contractnodes(nodes..., bondlabels)
-    for l in nodelabels
-        removenode!(tn, l)
-    end
-    addnode!(tn, newnode)
+    replacenodes!(tn, nodelabels, [newnode])
     return tn
 end
 
-function contractnodes!(tn, nodelabels...)
-    bondlabels = connectingbonds(tn, nodelabels...)
+function contractnodes!(tn::TensorNetwork, nodelabels...)
+    # Note that, even if some of the nodes have tracing indices, those will
+    # not be contracted over, unless that's the only node specified.
+    trace = length(nodelabels) == 1
+    bondlabels = connectingbonds(tn, nodelabels...; includetraces=trace)
     tn = contract_backend!(tn, nodelabels, bondlabels)
     return tn
 end
 
-function contractbonds!(tn, bondlabels...; allowpartial=false)
-    nodelabels = union([Set{Symbol}(tn.bonds[l].nodes) for l in bondlabels]...)
+function contractbonds!(tn::TensorNetwork, bondlabels...; allowpartial=false)
+    nodelabels = union([getendpoints(tn.bonds[l]) for l in bondlabels]...)
     if !allowpartial
         # Make sure that all legs between nodes are contracted at once.
         contractnodes!(tn, nodelabels...)
@@ -249,27 +274,15 @@ function contractbonds!(tn, bondlabels...; allowpartial=false)
     return tn
 end
 
-function tensor(x, outlabels::Vector)
+function tensor(t::TensorNetwork, outlabels::Vector)
     # TODO is this a good way to deal with outlabels consisting of something
-    # other than symbols
+    # other than symbols?
     outlabels = map(symbol, outlabels)
-    return tensor(x, outlabels)
-end
-
-function tensor(tne::TensorNetworkEvaluation, outlabels::Vector{Symbol})
-    tn = tne.tn
-    order = tne.order
-    for l in order
-        try
-            contractbonds!(tn, l)
-        catch KeyError
-            # TODO This most probably means l had been contracted over in some
-            # previous contraction. However, come up with a more robust way
-            # of dealing with this.
-        end
+    # TODO The following work around should be unnecessary in 0.5.
+    if length(outlabels) == 0
+        outlabels = Vector{Symbol}()
     end
-    res = tensor(tn, outlabels)
-    return res
+    return tensor(t, outlabels)
 end
 
 function tensor(tn::TensorNetwork, outlabels::Vector{Symbol})
@@ -326,10 +339,9 @@ function invar_indexcompatibility(tn::TensorNetwork)
     for (bondlabel, bond) in tn.bonds  
         nodes = bond.nodes
         if length(nodes) > 1
-            # TODO This should be part of a tensor class.
             chi1, chi2 = [getbonddimension(tn.nodes[l], bondlabel)
                           for l in nodes]
-            if chi1 != chi1
+            if chi1 != chi2
                 return false
             end
         end
@@ -338,7 +350,7 @@ function invar_indexcompatibility(tn::TensorNetwork)
 end
 
 function invar(tn::TensorNetwork)
-    invars = []
+    invars = Vector{Bool}()
     push!(invars, invar_nodelabels(tn))
     push!(invars, invar_bondlabels(tn))
     push!(invars, invar_connectivity(tn))
@@ -347,4 +359,15 @@ function invar(tn::TensorNetwork)
     return all(invars)
 end
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Submodules with additional functionality
+# (Each file contains one module, and one module only.)
+
+include("TensorNetworkEvaluations.jl")
+include("NCon.jl")
+importall .NCon
+importall .TensorNetworkEvaluations
+
 end
+

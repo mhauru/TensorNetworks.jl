@@ -2,7 +2,6 @@
 module Nodes
 
 using TensorOperations
-import Base.show
 
 export Node, contractnodes, relabel!
 
