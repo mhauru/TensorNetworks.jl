@@ -2,8 +2,10 @@
 module Nodes
 
 using TensorOperations
+import Base.copy
 
-export Node, contractnodes, relabel!
+# TODO invar
+export Node, contractnodes, relabel!, getbonddimension, copy, invar_tensororder
 
 const blastypes = (Float32, Float64, Complex64, Complex128)    
 
@@ -11,6 +13,15 @@ type Node
     label::Symbol
     tensor::Array
     bonds::Vector{Symbol}
+end
+
+"""
+Note that copying a Node creates a new node object with a new bond list,
+but one that refers to the same underlying Array.
+"""
+function copy(node::Node)
+    newnode = Node(node.label, node.tensor, copy(node.bonds))
+    return newnode
 end
 
 function show(io::IO, tnn::Node)
@@ -25,6 +36,16 @@ function relabel!(node::Node, label)
     return node
 end
 
+function combinelabels(label1)
+    return label1
+end
+
+function combinelabels(label1, label2)
+    str1, str2 = map(string, (label1, label2))
+    newlabel = symbol("($str1,$str2)")
+    return newlabel
+end
+
 function getbondindex(node, label)
     indices = findin(node.bonds, [label])
     if length(indices) == 1
@@ -35,8 +56,8 @@ end
 
 function getbonddimension(node::Node, bondlabel)
     tensor = node.tensor
-    i = findin(node.bonds, bondlabel)
-    bonddimension = size(tensor)[i]
+    inds = findin(node.bonds, [bondlabel])
+    bonddimension = prod([size(tensor)[i] for i in inds])
     return bonddimension
 end
 
@@ -80,13 +101,24 @@ function contractnodes(node1, node2, bondlabels)
     newtensor = tensorcontract(tensor1, labels1, tensor2, labels2;
                                method=method)
 
-    str1, str2 = string(node1.label), string(node2.label)
-    newlabel = "($str1,$str2)"
+    newlabel = combinelabels(node1.label, node2.label)
     newbondlabels = vcat(node1.bonds..., node2.bonds...)
     newbondlabels = newbondlabels[find(x -> !in(x, bondlabels),
                                        newbondlabels)]
     newnode = Node(newlabel, newtensor, newbondlabels)
     return newnode
+end
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# Invariants
+
+function invar_tensororder(node::Node)
+    if length(node.bonds) != ndims(node.tensor)
+        errmsg = "Mismatch of tensor order in TensorNetwork Node:\n$node"
+        throw(ArgumentError(errmsg))
+    end
+    return true
 end
 
 end

@@ -1,6 +1,6 @@
 module Bonds
 
-import Base.==
+import Base: ==, copy
 
 export Bond, connectbond!, disconnectbond!, reconnectbond!,
        isdangling, isdoubledangling, getendpoints, relabel!
@@ -30,6 +30,11 @@ end
 function Bond(bondlabel, nodelabel::Symbol)
     res = Bond(bondlabel, Nullable(nodelabel), Nullable{Symbol}())  
     return res
+end
+
+function copy(bond::Bond)
+    newbond = Bond(bond.label, bond.first, bond.second)
+    return newbond
 end
 
 function show(io::IO, bond::Bond)

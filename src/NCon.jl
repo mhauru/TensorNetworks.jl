@@ -2,6 +2,7 @@
 module NCon
 export ncon
 using ..TensorNetworkEvaluations
+using ..TensorNetworks
 
 """
     ncon(L, v; forder=nothing, order=nothing, check_indices=false)
@@ -61,6 +62,7 @@ function ncon(L, v; forder=nothing, order=nothing, check_indices=true)
         forder = create_forder(v)
     end
 
+    tn = TensorNetwork(L, v)
     tne = TensorNetworkEvaluation(tn, order)
 
     result = tensor(tne, forder)

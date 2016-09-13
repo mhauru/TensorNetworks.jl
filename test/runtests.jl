@@ -117,9 +117,6 @@ con = ncon(J, [1,-1,-2,1]; check_indices=true)
 # TODO take this back in once disconnected networks are supported.
 #@test_throws(ArgumentError,
 #             ncon((A, B), ([-1,-2,1], [1,-3], [-4]); check_indices=true))
-# DEBUG
-ncon((A, B), ([-1,-2,1]); check_indices=true)
-# END DEBUG
 @test_throws(ArgumentError,
              ncon((A, B), ([-1,-2,1]); check_indices=true))
 @test_throws(ArgumentError,
