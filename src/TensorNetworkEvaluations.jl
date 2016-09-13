@@ -6,7 +6,7 @@ using .BinaryTrees
 # From the parent module
 # TODO Collapse the multiline imports, hopefully using ..:
 import ..TensorNetwork, ..tensor, ..subnetwork, ..contractnodes!
-import ..joinnetworks
+import ..joinnetworks, ..connectedbonds
 import ..Bonds.getendpoints
 import ..Nodes.combinelabels
 
@@ -32,6 +32,11 @@ function TensorNetworkEvaluation(tn::TensorNetwork, bondorder::Vector)
 end
 
 function TensorNetworkEvaluation(tn::TensorNetwork, bondorder::Vector{Symbol})
+    allconnected = connectedbonds(tn)
+    if allconnected != Set(bondorder) 
+        errmsg = "bondorder does not include all connected bonds."
+        throw(ArgumentError(errmsg))
+    end
     nodematrix = bondorder_to_nodematrix(tn, bondorder)
     if length(nodematrix) == 0
         # There's only one tensor in the network.

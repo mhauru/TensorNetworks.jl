@@ -2,7 +2,7 @@ module TensorNetworks
 
 export TensorNetwork, addnode!, removenode!, addtensor!, relabelnode!,
        relabelbond!, tensor, contractbonds!, contractnodes!, subnetwork,
-       joinnetworks, copy, ncon
+       joinnetworks, connectedbonds, danglingbonds, copy, ncon
 
 using TensorOperations
 import Base: show, copy
@@ -171,6 +171,22 @@ function connectingbonds(tn::TensorNetwork, nodelabels...; includetraces=true)
     return twice
 end
 
+function dangling_and_connected_bonds(tn::TensorNetwork)
+    dangling = Set{Symbol}()
+    connected = Set{Symbol}()
+    for b in values(tn.bonds)
+        if isdangling(b)
+            push!(dangling, b.label)
+        else
+            push!(connected, b.label)
+        end
+    end
+    return dangling, connected
+end
+
+danglingbonds(tn::TensorNetwork) = dangling_and_connected_bonds(tn)[1]
+connectedbonds(tn::TensorNetwork) = dangling_and_connected_bonds(tn)[2]
+
 function joinnetworks(tn1::TensorNetwork, tn2::TensorNetwork)
     tn = copy(tn1)
     for node in values(tn2.nodes)
@@ -320,6 +336,11 @@ function tensor(tn::TensorNetwork, outlabels::Vector{Symbol})
     if length(tn.nodes) > 1
         errmsg = "Can not extract a single tensor from a tensor network with"*
                  " more than one node. Use NCon to contract the network first."
+        throw(ArgumentError(errmsg) )
+    end
+    alldangling = danglingbonds(tn)
+    if alldangling != Set(outlabels) 
+        errmsg = "outlabels does not include all dangling bonds."
         throw(ArgumentError(errmsg) )
     end
     node = first(tn.nodes).second
