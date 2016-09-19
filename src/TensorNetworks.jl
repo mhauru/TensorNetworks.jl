@@ -2,7 +2,8 @@ module TensorNetworks
 
 export TensorNetwork, addnode!, removenode!, addtensor!, relabelnode!,
        relabelbond!, tensor, contractbonds!, contractnodes!, subnetwork,
-       joinnetworks, connectedbonds, danglingbonds, copy, ncon
+       joinnetworks, connectedbonds, danglingbonds, copy, ncon, neighbors,
+       connectednodes, connected_components
 
 using TensorOperations
 import Base: show, copy
@@ -117,7 +118,7 @@ function relabelbond!(tn::TensorNetwork, oldlabel, newlabel)
     relabel!(bond, newlabel)
     delete!(tn.bonds, oldlabel)
     tn.bonds[newlabel] = bond
-    for nodelabel in getendpoints(bond)
+    for nodelabel in endpoints(bond)
         node = tn.nodes[nodelabel]
         bls = node.bonds
         bls[findin(bls, oldlabel)] = newlabel
@@ -210,6 +211,40 @@ function constructbondsfromnodes(nodedict)
         end
     end
     return bonds
+end
+
+function neighbors(tn::TensorNetwork, nodelabel::Symbol)
+    node = tn.nodes[nodelabel]
+    bonds = [tn.bonds[label] for label in node.bonds]
+    allendpoints = Set{Symbol}()
+    for b in bonds 
+        union!(allendpoints, endpoints(b))
+    end
+    setdiff!(allendpoints, Set([node]))
+    return allendpoints
+end
+
+function connected_components(tn::TensorNetwork)
+    remaining = Set(keys(tn.nodes))
+    components = Vector{Vector{Symbol}}()
+    while length(remaining) != 0
+        current = first(remaining)
+        componentset = connectednodes(tn, current)
+        setdiff!(remaining, componentset)
+        push!(components, collect(componentset))
+    end
+    return components
+end
+
+function connectednodes(tn::TensorNetwork, node::Symbol, found=Set{Symbol}())
+    if !(node in found)
+        push!(found, node)
+        neighs = neighbors(tn, node)
+        for n in neighs
+            found = connectednodes(tn, n, found)
+        end
+    end
+    return found
 end
 
 
@@ -309,7 +344,7 @@ function contractnodes!(tn::TensorNetwork, nodelabels...)
 end
 
 function contractbonds!(tn::TensorNetwork, bondlabels...; allowpartial=false)
-    nodelabels = union([getendpoints(tn.bonds[l]) for l in bondlabels]...)
+    nodelabels = union([endpoints(tn.bonds[l]) for l in bondlabels]...)
     if !allowpartial
         # Make sure that all legs between nodes are contracted at once.
         contractnodes!(tn, nodelabels...)
@@ -392,9 +427,9 @@ end
 
 function invar_indexcompatibility(tn::TensorNetwork)
     for (bondlabel, bond) in tn.bonds  
-        nodes = getendpoints(bond)
+        nodes = endpoints(bond)
         if length(nodes) > 1
-            chi1, chi2 = [getbonddimension(tn.nodes[l], bondlabel)
+            chi1, chi2 = [bonddimension(tn.nodes[l], bondlabel)
                           for l in nodes]
             if chi1 != chi2
                 errmsg = "Mismatch of bond dimensions for bond $bondlabel"*

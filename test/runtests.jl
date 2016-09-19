@@ -92,15 +92,14 @@ con = ncon((A, C), ((-1,2,1), (-2,2,-3,-4,1)); check_indices=true)
 
 @test D1 == ncon(D1, [-1,-2]; check_indices=true)
 
-# TODO take these back in once disconnected networks are supported.
-#con = ncon((D1, D2), ([-1,-2], [-3,-4]); check_indices=true)
-#@tensor reco[a,b,c,d] := D1[a,b] * D2[c,d]
-#@test isapprox(con, reco)
-#
-#con = ncon((D1, D2, D3), ([-1,-2], [-6,-5], [-3,-4]);
-#           forder=[-2,-4,-5,-1,-6,-3], check_indices=true)
-#@tensor reco[-2,-4,-5,-1,-6,-3] := D1[-1,-2] * D2[-6,-5] * D3[-3,-4]
-#@test isapprox(con, reco)
+con = ncon((D1, D2), ([-1,-2], [-3,-4]); check_indices=true)
+@tensor reco[a,b,c,d] := D1[a,b] * D2[c,d]
+@test isapprox(con, reco)
+
+con = ncon((D1, D2, D3), ([-1,-2], [-6,-5], [-3,-4]);
+           forder=[-2,-4,-5,-1,-6,-3], check_indices=true)
+@tensor reco[-2,-4,-5,-1,-6,-3] := D1[-1,-2] * D2[-6,-5] * D3[-3,-4]
+@test isapprox(con, reco)
 
 con = ncon(E, [1,2,1,2]; check_indices=true)
 @tensor reco[] := E[i,j,i,j]
@@ -114,9 +113,8 @@ con = ncon(J, [1,-1,-2,1]; check_indices=true)
 @tensor reco[a,b] := J[i,a,b,i]
 @test isapprox(con, reco)
 
-# TODO take this back in once disconnected networks are supported.
-#@test_throws(ArgumentError,
-#             ncon((A, B), ([-1,-2,1], [1,-3], [-4]); check_indices=true))
+@test_throws(ArgumentError,
+             ncon((A, B), ([-1,-2,1], [1,-3], [-4]); check_indices=true))
 @test_throws(ArgumentError,
              ncon((A, B), ([-1,-2,1]); check_indices=true))
 @test_throws(ArgumentError,

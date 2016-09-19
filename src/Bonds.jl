@@ -3,7 +3,7 @@ module Bonds
 import Base: ==, copy
 
 export Bond, connectbond!, disconnectbond!, reconnectbond!,
-       isdangling, isdoubledangling, getendpoints, relabel!
+       isdangling, isdoubledangling, endpoints, relabel!
 
 type Bond
     label::Symbol
@@ -105,7 +105,7 @@ function isdoubledangling(bond)
     return res
 end
 
-function getendpoints(bond)
+function endpoints(bond)
     endpoints = Set{Symbol}()
     if !isnull(bond.first)
         push!(endpoints, get(bond.first))

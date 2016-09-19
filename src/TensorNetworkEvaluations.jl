@@ -6,8 +6,8 @@ using .BinaryTrees
 # From the parent module
 # TODO Collapse the multiline imports, hopefully using ..:
 import ..TensorNetwork, ..tensor, ..subnetwork, ..contractnodes!
-import ..joinnetworks, ..connectedbonds
-import ..Bonds.getendpoints
+import ..joinnetworks, ..connectedbonds, ..connected_components
+import ..Bonds.endpoints
 import ..Nodes.combinelabels
 
 export TensorNetworkEvaluation, tensor, evaluate!, subevaluation
@@ -50,28 +50,34 @@ function TensorNetworkEvaluation(tn::TensorNetwork, bondorder::Vector{Symbol})
     return tne
 end
 
-""" Turns a list of bonds representing a contraction order to matrix whose
-first dimension corresponds to contractions and second dimension (of length 2)
-lists the labels of the nodes contracted. This is an intermediate step in
-turning this into a tree representation of the contraction order.
+"""
+Turns a list of bonds representing a contraction order to matrix whose first
+dimension corresponds to contractions and second dimension (of length 2) lists
+the labels of the nodes contracted. This is an intermediate step in turning
+this into a tree representation of the contraction order.
 """
 function bondorder_to_nodematrix(tn::TensorNetwork, bondorder)
-    if length(bondorder) == 0
-        nodematrix = Array{Symbol,2}[]
-    else
-        nodevectors = Vector{Vector{Symbol}}()
-        for i in 1:length(bondorder)
-            bondlabel = bondorder[i]
-            bond = tn.bonds[bondlabel]
-            nodelabels = collect(getendpoints(bond))
-            if length(nodelabels) > 1
-                push!(nodevectors, nodelabels)
-            end
+    nodevectors = Vector{Vector{Symbol}}()
+    for i in 1:length(bondorder)
+        bondlabel = bondorder[i]
+        bond = tn.bonds[bondlabel]
+        nodelabels = collect(endpoints(bond))
+        if length(nodelabels) > 1
+            push!(nodevectors, nodelabels)
         end
-        nodematrix = transpose(hcat(nodevectors...))
-        # Remove duplicates.
-        nodematrix = unique(nodematrix, 1)
     end
+    # Add trivial "legs" between disconnected parts of the network.
+    components = connected_components(tn)
+    i = 1
+    while i < length(components)
+        node1 = components[i][1]
+        node2 = components[i+1][1]
+        push!(nodevectors, [node1, node2])
+        i += 1
+    end
+    nodematrix = transpose(hcat(nodevectors...))
+    # Remove duplicates.
+    nodematrix = unique(nodematrix, 1)
     return nodematrix
 end
 
